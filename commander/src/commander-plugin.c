@@ -286,6 +286,41 @@ tree_view_activate_focused_row (GtkTreeView *view)
   }
 }
 
+static gboolean
+g_closure_equal (GtkAccelKey *key,
+                 GClosure    *closure,
+                 gpointer     data)
+{
+  return closure == data;
+}
+
+static gchar *
+widget_accel_label (GtkWidget *widget)
+{
+  GList *closures = gtk_widget_list_accel_closures (widget);
+  GList *iter;
+  gchar *accel_label = NULL;
+
+  for (iter = closures; iter != NULL && accel_label == NULL; iter = g_list_next (iter))
+    {
+      GClosure *closure = iter->data;
+      GtkAccelGroup *accel_group = gtk_accel_group_from_accel_closure (closure);
+
+      if (accel_group != NULL)
+        {
+          GtkAccelKey *accel_key = gtk_accel_group_find (accel_group, g_closure_equal,
+                                                         closure);
+
+          if (accel_key != NULL)
+            accel_label = gtk_accelerator_get_label (accel_key->accel_key,
+                                                     accel_key->accel_mods);
+        }
+    }
+
+  g_list_free (closures);
+  return accel_label;
+}
+
 static void
 store_populate_menu_items (GtkListStore  *store,
                            GtkMenuShell  *menu,
@@ -340,8 +375,15 @@ store_populate_menu_items (GtkListStore  *store,
         store_populate_menu_items (store, GTK_MENU_SHELL (submenu), path);
       } else {
         gchar *tmp;
+        gchar *accel_label;
         gchar *tooltip;
         gchar *label = g_markup_printf_escaped ("<big>%s</big>", item_label);
+
+        accel_label = widget_accel_label (node->data);
+        if (accel_label) {
+          SETPTR (label, g_strconcat (label, "  <small>", accel_label, "</small>", NULL));
+          g_free (accel_label);
+        }
         
         tooltip = gtk_widget_get_tooltip_markup (node->data);
         if (tooltip) {
