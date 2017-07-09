@@ -1667,6 +1667,40 @@ treebrowser_track_current_cb(void)
  * ------------------ */
 
 static gboolean
+treeview_search_equal_func(GtkTreeModel *model, gint column,
+		const gchar *key, GtkTreeIter *iter, gpointer search_data)
+{
+	gchar *uri, *uri_dir, *uri_base;
+	gchar *key_dir, *key_base;
+	gboolean miss;
+
+	gtk_tree_model_get(model, iter, column, &uri, -1);
+	if (!uri)
+		return TRUE;
+
+	uri_base = g_path_get_basename(uri);
+	key_base = g_path_get_basename(key);
+
+	miss = !g_str_match_string(key_base, uri_base, FALSE);
+	if (!miss)
+	{
+		uri_dir = g_path_get_dirname(uri);
+		key_dir = g_path_get_dirname(key);
+		/* g_path_get_dirname returns "." when there's no directory component */
+		if (!utils_str_equal(key_dir, "."))
+			miss = !g_str_match_string(key_dir, uri_dir, FALSE);
+		g_free(uri_dir);
+		g_free(key_dir);
+	}
+
+	g_free(uri);
+	g_free(uri_base);
+	g_free(key_base);
+	return miss;
+}
+
+
+static gboolean
 treeview_separator_func(GtkTreeModel *model, GtkTreeIter *iter, gpointer data)
 {
 	gint flag;
@@ -1695,7 +1729,8 @@ create_view_and_model(void)
 	gtk_tree_view_column_add_attribute(treeview_column_text, render_text, "text", TREEBROWSER_RENDER_TEXT);
 
 	gtk_tree_view_set_enable_search(GTK_TREE_VIEW(view), TRUE);
-	gtk_tree_view_set_search_column(GTK_TREE_VIEW(view), TREEBROWSER_COLUMN_NAME);
+	gtk_tree_view_set_search_column(GTK_TREE_VIEW(view), TREEBROWSER_COLUMN_URI);
+	gtk_tree_view_set_search_equal_func(GTK_TREE_VIEW(view), treeview_search_equal_func, NULL, NULL);
 
 	gtk_tree_view_set_row_separator_func(GTK_TREE_VIEW(view), treeview_separator_func, NULL, NULL);
 
